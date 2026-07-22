@@ -1,0 +1,14 @@
+package com.mohit.ecommerce.service;
+import com.mohit.ecommerce.dto.*; import com.mohit.ecommerce.entity.*; import com.mohit.ecommerce.exception.*; import com.mohit.ecommerce.repository.*; import org.springframework.stereotype.Service; import org.springframework.transaction.annotation.Transactional; import java.math.BigDecimal; import java.util.List;
+@Service
+public class CartService{
+ private final CartRepository carts; private final CartItemRepository items; private final UserRepository users; private final ProductService products;
+ public CartService(CartRepository c,CartItemRepository i,UserRepository u,ProductService p){carts=c;items=i;users=u;products=p;}
+ @Transactional public CartResponse get(String email){return map(cart(email));}
+ @Transactional public CartResponse add(String email,CartItemRequest r){Cart c=cart(email);Product p=products.entity(r.productId());if(r.quantity()>p.getStock())throw new BusinessException("Requested quantity exceeds stock");CartItem item=items.findByCartAndProduct(c,p).orElseGet(()->{CartItem x=new CartItem();x.setCart(c);x.setProduct(p);x.setQuantity(0);c.getItems().add(x);return x;});int newQty=item.getQuantity()+r.quantity();if(newQty>p.getStock())throw new BusinessException("Requested quantity exceeds stock");item.setQuantity(newQty);items.save(item);return map(c);}
+ @Transactional public CartResponse update(String email,Long productId,Integer quantity){if(quantity<=0)throw new BusinessException("Quantity must be greater than zero");Cart c=cart(email);Product p=products.entity(productId);CartItem i=items.findByCartAndProduct(c,p).orElseThrow(()->new ResourceNotFoundException("Product is not in cart"));if(quantity>p.getStock())throw new BusinessException("Requested quantity exceeds stock");i.setQuantity(quantity);return map(c);}
+ @Transactional public CartResponse remove(String email,Long productId){Cart c=cart(email);Product p=products.entity(productId);CartItem i=items.findByCartAndProduct(c,p).orElseThrow(()->new ResourceNotFoundException("Product is not in cart"));c.getItems().remove(i);items.delete(i);return map(c);}
+ @Transactional public void clear(String email){Cart c=cart(email);c.getItems().clear();carts.save(c);}
+ public Cart cart(String email){return carts.findByUserEmailIgnoreCase(email).orElseGet(()->{AppUser u=users.findByEmailIgnoreCase(email).orElseThrow(()->new ResourceNotFoundException("User not found"));Cart c=new Cart();c.setUser(u);return carts.save(c);});}
+ public CartResponse map(Cart c){List<CartItemResponse> list=c.getItems().stream().map(i->{BigDecimal sub=i.getProduct().getPrice().multiply(BigDecimal.valueOf(i.getQuantity()));return new CartItemResponse(i.getProduct().getId(),i.getProduct().getName(),i.getProduct().getPrice(),i.getQuantity(),sub);}).toList();BigDecimal total=list.stream().map(CartItemResponse::subtotal).reduce(BigDecimal.ZERO,BigDecimal::add);return new CartResponse(c.getId(),list,total);}
+}

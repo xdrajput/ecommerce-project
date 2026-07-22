@@ -1,0 +1,13 @@
+package com.mohit.ecommerce.service;
+import com.mohit.ecommerce.dto.*; import com.mohit.ecommerce.entity.*; import com.mohit.ecommerce.enums.OrderStatus; import com.mohit.ecommerce.exception.*; import com.mohit.ecommerce.repository.*; import org.springframework.data.domain.*; import org.springframework.stereotype.Service; import org.springframework.transaction.annotation.Transactional; import java.math.BigDecimal; import java.time.LocalDateTime; import java.util.*;
+@Service
+public class OrderService{
+ private final OrderRepository orders; private final CartService carts; private final ProductRepository products;
+ public OrderService(OrderRepository o,CartService c,ProductRepository p){orders=o;carts=c;products=p;}
+ @Transactional public OrderResponse place(String email,PlaceOrderRequest r){Cart cart=carts.cart(email);if(cart.getItems().isEmpty())throw new BusinessException("Cart is empty");PurchaseOrder order=new PurchaseOrder();order.setUser(cart.getUser());order.setStatus(OrderStatus.PLACED);order.setCreatedAt(LocalDateTime.now());order.setShippingAddress(r.shippingAddress());BigDecimal total=BigDecimal.ZERO;for(CartItem ci:new ArrayList<>(cart.getItems())){Product p=ci.getProduct();if(ci.getQuantity()>p.getStock())throw new BusinessException("Insufficient stock for "+p.getName());p.setStock(p.getStock()-ci.getQuantity());products.save(p);OrderItem oi=new OrderItem();oi.setOrder(order);oi.setProduct(p);oi.setQuantity(ci.getQuantity());oi.setUnitPrice(p.getPrice());order.getItems().add(oi);total=total.add(p.getPrice().multiply(BigDecimal.valueOf(ci.getQuantity())));}order.setTotalAmount(total);PurchaseOrder saved=orders.save(order);cart.getItems().clear();return map(saved);}
+ @Transactional(readOnly=true) public Page<OrderResponse> mine(String email,Pageable p){return orders.findByUserEmailIgnoreCase(email,p).map(this::map);}
+ @Transactional(readOnly=true) public Page<OrderResponse> all(Pageable p){return orders.findAll(p).map(this::map);}
+ @Transactional public OrderResponse updateStatus(Long id,UpdateOrderStatusRequest r){PurchaseOrder o=entity(id);o.setStatus(r.status());return map(orders.save(o));}
+ public PurchaseOrder entity(Long id){return orders.findById(id).orElseThrow(()->new ResourceNotFoundException("Order not found: "+id));}
+ public OrderResponse map(PurchaseOrder o){List<OrderItemResponse> list=o.getItems().stream().map(i->new OrderItemResponse(i.getProduct().getId(),i.getProduct().getName(),i.getQuantity(),i.getUnitPrice(),i.getUnitPrice().multiply(BigDecimal.valueOf(i.getQuantity())))).toList();return new OrderResponse(o.getId(),o.getUser().getEmail(),o.getStatus(),o.getTotalAmount(),o.getCreatedAt(),o.getShippingAddress(),list);}
+}

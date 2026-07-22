@@ -1,0 +1,3 @@
+package com.mohit.ecommerce.service;
+import com.mohit.ecommerce.dto.UserResponse; import com.mohit.ecommerce.entity.AppUser; import com.mohit.ecommerce.exception.ResourceNotFoundException; import com.mohit.ecommerce.repository.UserRepository; import org.springframework.stereotype.Service;
+@Service public class UserService{private final UserRepository users;public UserService(UserRepository u){users=u;}public UserResponse me(String email){AppUser u=users.findByEmailIgnoreCase(email).orElseThrow(()->new ResourceNotFoundException("User not found"));return new UserResponse(u.getId(),u.getName(),u.getEmail(),u.getRole().name());}}

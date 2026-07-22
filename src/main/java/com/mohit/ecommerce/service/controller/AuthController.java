@@ -1,0 +1,3 @@
+package com.mohit.ecommerce.controller;
+import com.mohit.ecommerce.dto.*; import com.mohit.ecommerce.service.AuthService; import jakarta.validation.Valid; import org.springframework.http.*; import org.springframework.web.bind.annotation.*;
+@RestController @RequestMapping("/api/auth") public class AuthController{private final AuthService s;public AuthController(AuthService s){this.s=s;}@PostMapping("/register") ResponseEntity<UserResponse> register(@Valid @RequestBody RegisterRequest r){return ResponseEntity.status(HttpStatus.CREATED).body(s.register(r));}@PostMapping("/login") AuthResponse login(@Valid @RequestBody LoginRequest r){return s.login(r);}}

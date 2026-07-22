@@ -1,0 +1,3 @@
+package com.mohit.ecommerce.controller;
+import com.mohit.ecommerce.dto.*; import com.mohit.ecommerce.service.OrderService; import jakarta.validation.Valid; import org.springframework.data.domain.*; import org.springframework.http.*; import org.springframework.security.core.Authentication; import org.springframework.web.bind.annotation.*;
+@RestController @RequestMapping("/api/orders") public class OrderController{private final OrderService s;public OrderController(OrderService s){this.s=s;}@PostMapping ResponseEntity<OrderResponse> place(Authentication a,@Valid @RequestBody PlaceOrderRequest r){return ResponseEntity.status(HttpStatus.CREATED).body(s.place(a.getName(),r));}@GetMapping Page<OrderResponse> mine(Authentication a,Pageable p){return s.mine(a.getName(),p);}}
